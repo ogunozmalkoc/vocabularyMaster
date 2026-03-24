@@ -17,6 +17,7 @@ import { auth, db, firebaseReady, googleProvider } from "./firebase";
 
 const MAX_DAYS = 10;
 const todayKey = format(new Date(), "yyyy-MM-dd");
+const THEME_KEY = "vocabulary-theme";
 
 type SentenceEntry = {
   id: string;
@@ -88,7 +89,10 @@ export default function App() {
   const [newMeaning, setNewMeaning] = useState("");
   const [newSentence, setNewSentence] = useState("");
   const [status, setStatus] = useState("Ready");
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const saved = localStorage.getItem(THEME_KEY);
+    return saved === "dark" ? "dark" : "light";
+  });
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState("");
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
@@ -106,6 +110,10 @@ export default function App() {
   } | null>(null);
 
   const firebaseMisconfigured = !firebaseReady || !db;
+
+  useEffect(() => {
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
 
   useEffect(() => {
     if (!deleteSentenceModalOpen) return;
@@ -598,19 +606,18 @@ export default function App() {
               </div>
             </div>
           )}
+          <footer className="site-footer-built landing-page-credit">
+            <p className="site-credit-line">built by Ogün Özmalkoç</p>
+            <a
+              className="site-credit-link"
+              href="https://github.com/ogunozmalkoc"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              GitHub
+            </a>
+          </footer>
         </main>
-
-        <footer className="site-footer-built landing-page-credit">
-          <p className="site-credit-line">built by Ogün Özmalkoç</p>
-          <a
-            className="site-credit-link"
-            href="https://github.com/ogunozmalkoc"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            GitHub
-          </a>
-        </footer>
       </div>
     );
   }
@@ -625,7 +632,7 @@ export default function App() {
         <div className="auth-box">
           <button
             type="button"
-            className="btn ghost theme-toggle-btn"
+            className="btn ghost theme-toggle-btn top-action-btn"
             onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
             aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           >
@@ -638,7 +645,7 @@ export default function App() {
           </button>
           {user ? (
             <>
-              <button className="btn ghost" onClick={requestSignOut}>
+              <button className="btn ghost top-action-btn" onClick={requestSignOut}>
                 Sign out
               </button>
             </>

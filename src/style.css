@@ -57,8 +57,16 @@ body {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+}
+
+.top-action-btn {
+  min-width: 110px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .single-grid {
@@ -409,6 +417,8 @@ textarea {
 }
 
 .landing-sparkle {
+  display: inline-block;
+  margin-left: 0.2rem;
   font-weight: 400;
   font-style: normal;
 }
@@ -583,8 +593,8 @@ textarea {
 
 .landing-page .site-footer-built,
 .landing-page-credit {
-  margin-top: auto;
-  padding-top: 1.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.25rem;
   width: 100%;
 }
 
@@ -735,8 +745,7 @@ textarea {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  max-width: 420px;
+  width: min(78vw, 420px);
   height: 100dvh;
   background: #f8fbff;
   border-right: 1px solid #dbe3f0;
@@ -820,5 +829,69 @@ textarea {
     width: min(88vw, 360px);
     max-width: none;
     height: 100vh;
+  }
+}
+
+@media (max-width: 640px) {
+  .page,
+  .landing-page {
+    padding: 0.75rem;
+  }
+
+  .topbar {
+    gap: 0.55rem;
+  }
+
+  .auth-box {
+    flex-wrap: nowrap;
+    gap: 0.45rem;
+  }
+
+  .top-action-btn {
+    min-width: 96px;
+    height: 40px;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.9rem;
+  }
+
+  .theme-toggle-btn {
+    gap: 0.3rem;
+  }
+
+  .theme-toggle-text {
+    font-size: 0.76rem;
+  }
+
+  .topbar h1,
+  .landing-hero-title {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .quick-nav {
+    grid-template-columns: auto 1fr;
+    gap: 0.45rem;
+  }
+
+  .landing-main {
+    justify-content: flex-start;
+    padding: 0.85rem 0 1.2rem;
+    gap: 0.6rem;
+  }
+
+  .landing-card {
+    max-width: 100%;
+  }
+
+  .landing-card-elevated {
+    padding: 1rem;
+  }
+
+  .footer {
+    text-align: center;
+  }
+
+  .drawer {
+    width: min(92vw, 420px);
   }
 }
