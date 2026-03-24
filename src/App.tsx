@@ -51,15 +51,7 @@ const initialData: VocabularyData = {
       id: crypto.randomUUID(),
       name: "General",
       createdAt: Date.now(),
-      words: [
-        {
-          id: crypto.randomUUID(),
-          word: "acquire",
-          meaning: "to get something",
-          createdAt: Date.now(),
-          entries: [],
-        },
-      ],
+      words: [],
     },
   ],
 };
@@ -1010,7 +1002,7 @@ export default function App() {
               onChange={(e) => setNewMeaning(e.target.value)}
               placeholder="Short meaning (to get something)"
             />
-            <button className="btn" onClick={addWord}>
+            <button className="btn secondary" onClick={addWord}>
               Save word
             </button>
           </div>
