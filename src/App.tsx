@@ -71,6 +71,8 @@ function sanitizeData(data: VocabularyData): VocabularyData {
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [authFallbackTriggered, setAuthFallbackTriggered] = useState(false);
+  const [retryLoginLoading, setRetryLoginLoading] = useState(false);
   const isApplyingRemoteRef = useRef(false);
   const [data, setData] = useState<VocabularyData>({ categories: [] });
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -135,10 +137,29 @@ export default function App() {
       setAuthLoading(false);
       return;
     }
-    return onAuthStateChanged(auth, (u) => {
+    let didResolve = false;
+
+    // Mobile iOS Safari'de nadiren `onAuthStateChanged` geç/hiç dönmeyebiliyor.
+    // Kullanıcı arayüzünün sonsuza kadar "Signing in..." takılı kalmaması için fallback ekliyoruz.
+    const timeoutId = window.setTimeout(() => {
+      if (didResolve) return;
+      console.warn("Auth fallback: onAuthStateChanged did not respond in time.");
+      setAuthFallbackTriggered(true);
+      setAuthLoading(false);
+    }, 3000);
+
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      didResolve = true;
+      window.clearTimeout(timeoutId);
       setUser(u);
+      setAuthFallbackTriggered(false);
       setAuthLoading(false);
     });
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      unsubscribe();
+    };
   }, []);
 
   if (firebaseMisconfigured) {
@@ -301,6 +322,41 @@ export default function App() {
     ? (pendingByCategory.get(activeCategoryId) ?? 0)
     : 0;
 
+  const userName = user?.displayName?.trim() ?? "";
+
+  const greetingBase = (() => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return "Good morning";
+    if (hour >= 12 && hour < 18) return "Good afternoon";
+    if (hour >= 18 && hour <= 23) return "Good evening";
+    return "Working late?";
+  })();
+
+  const greetingLine1 = userName
+    ? greetingBase === "Working late?"
+      ? `Working late, ${userName}`
+      : `${greetingBase}, ${userName}`
+    : greetingBase;
+
+  // Daily motivation: "Today's Progress" based on words that are still in the 10-day cycle.
+  // Y = words that still need today's sentence (they haven't finished 10 days yet)
+  // X = those same words that already have today's sentence saved.
+  const todayWordsTotal = data.categories.reduce((acc, category) => {
+    const activeWords = category.words.filter((w) => w.entries.length < MAX_DAYS);
+    return acc + activeWords.length;
+  }, 0);
+
+  const todayWordsDone = data.categories.reduce((acc, category) => {
+    const doneWords = category.words.filter(
+      (w) => w.entries.length < MAX_DAYS && w.entries.some((e) => e.date === todayKey)
+    );
+    return acc + doneWords.length;
+  }, 0);
+
+  const greetingLine2 = `Today's progress: ${todayWordsDone} / ${todayWordsTotal} words${
+    todayWordsTotal > 0 && todayWordsDone === todayWordsTotal ? " 🎉" : ""
+  }`;
+
   const addCategory = () => {
     const name = newCategory.trim();
     if (!name) return;
@@ -335,7 +391,7 @@ export default function App() {
   };
 
   const deleteCategory = (id: string) => {
-    if (!window.confirm("Delete this category with all words?")) return;
+    if (!window.confirm("Delete this group with all words?")) return;
     updateData((prev) => ({
       categories: prev.categories.filter((c) => c.id !== id),
     }));
@@ -596,6 +652,30 @@ export default function App() {
                   Get started with Google
                 </button>
               </div>
+              {authFallbackTriggered && !user ? (
+                <div style={{ marginTop: 10, textAlign: "center" }}>
+                  <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+                    Having trouble signing in? Try again.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    style={{ marginTop: 8, width: "100%", maxWidth: 260 }}
+                    disabled={retryLoginLoading}
+                    aria-busy={retryLoginLoading}
+                    onClick={async () => {
+                      setRetryLoginLoading(true);
+                      try {
+                        await signIn();
+                      } finally {
+                        setRetryLoginLoading(false);
+                      }
+                    }}
+                  >
+                    {retryLoginLoading ? "Retrying..." : "Retry login"}
+                  </button>
+                </div>
+              ) : null}
             </div>
           )}
           <footer className="site-footer-built landing-page-credit">
@@ -618,8 +698,13 @@ export default function App() {
     <div className={`page ${theme === "dark" ? "theme-dark" : "theme-light"}`}>
       <header className="topbar">
         <div className="topbar-title">
-          <h1>Vocabulary Master ✨</h1>
-          {user ? <p className="muted">{user.displayName}</p> : null}
+          <h1>Vocabulary Master <span aria-hidden="true">✨</span></h1>
+          {user ? (
+            <div className="app-greeting">
+              <p className="muted app-greeting-primary">{greetingLine1}</p>
+              <p className="muted app-greeting-secondary">{greetingLine2}</p>
+            </div>
+          ) : null}
         </div>
         <div className="auth-box">
           <button
@@ -647,7 +732,7 @@ export default function App() {
 
       <div className="quick-nav">
         <button className="btn ghost icon-btn" onClick={() => setIsCategoryDrawerOpen(true)}>
-          ☰ Categories
+          ☰ Groups
         </button>
         <button
           className="btn ghost icon-btn"
@@ -665,8 +750,18 @@ export default function App() {
               <div className="word-head">
                 <div className="title text-overflow">{activeWord.word}</div>
                 <div className="muted text-overflow">{activeWord.meaning}</div>
-                <div className="progress">
-                  Progress: {activeWord.entries.length}/{MAX_DAYS}
+                <div className="progress-indicator" aria-label={`Progress: ${activeWord.entries.length} / ${MAX_DAYS} days`}>
+                  <div className="progress-text">
+                    Progress: {activeWord.entries.length} / {MAX_DAYS} days
+                  </div>
+                  <div className="progress-bar" aria-hidden="true">
+                    <div
+                      className="progress-fill"
+                      style={{
+                        width: `${Math.min(1, activeWord.entries.length / MAX_DAYS) * 100}%`,
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
               <textarea
@@ -789,7 +884,7 @@ export default function App() {
 
       <aside className={`drawer ${isCategoryDrawerOpen ? "open" : ""}`}>
         <div className="drawer-head">
-          <h2>Categories</h2>
+          <h2>Groups</h2>
           <button className="action-btn" onClick={() => setIsCategoryDrawerOpen(false)}>
             Close
           </button>
@@ -810,7 +905,7 @@ export default function App() {
                   <input
                     value={editingCategoryName}
                     onChange={(e) => setEditingCategoryName(e.target.value)}
-                    placeholder="Category name"
+                    placeholder="Group name"
                   />
                 ) : (
                   <span className="text-overflow">{c.name}</span>
@@ -871,17 +966,17 @@ export default function App() {
           ))}
         </div>
         <button className="btn secondary" onClick={() => setIsCategoryFormOpen((v) => !v)}>
-          {isCategoryFormOpen ? "Hide add form" : "+ Add category"}
+          {isCategoryFormOpen ? "Hide add form" : "+ Add group"}
         </button>
         {isCategoryFormOpen && (
           <div className="stack">
             <input
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value)}
-              placeholder="New category"
+              placeholder="New group"
             />
-            <button className="btn" onClick={addCategory}>
-              Save category
+            <button className="btn secondary" onClick={addCategory}>
+              Save group
             </button>
           </div>
         )}
